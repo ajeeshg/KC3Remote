@@ -27,7 +27,6 @@ import org.kuali.kra.bo.Sponsor;
 import org.kuali.kra.bo.Unit;
 import org.kuali.kra.infrastructure.KraServiceLocator;
 import org.kuali.kra.institutionalproposal.proposallog.service.ProposalLogService;
-import org.kuali.kra.institutionalproposal.proposallog.service.impl.ProposalLogServiceImpl;
 import org.kuali.kra.proposaldevelopment.bo.ProposalType;
 import org.kuali.kra.service.KcPersonService;
 
@@ -188,6 +187,9 @@ public class ProposalLog extends KraPersistableBusinessObjectBase {
 
     public void setSponsorCode(String sponsorCode) {
         this.sponsorCode = sponsorCode;
+        if (!isEmpty(sponsorCode)) {
+            setSponsorName();
+        }
     }
 
     public String getSponsorName() {
@@ -396,10 +398,13 @@ public class ProposalLog extends KraPersistableBusinessObjectBase {
      * We need to denormalize this data before persistence for Coeus database compatibility.
      */
     private void setSponsorName() {
-        if (this.getSponsorCode() != null) {
+        if (!isEmpty(this.getSponsorCode())) {
             this.refreshReferenceObject("sponsor");
-            if (this.getSponsor() != null) {
-                this.setSponsorName(this.getSponsor().getSponsorName());
+            if (this.getSponsor()!= null) {
+                sponsorName = this.getSponsor().getSponsorName();
+            }
+            else {
+                sponsorName = null;
             }
         }
     }
@@ -443,5 +448,9 @@ public class ProposalLog extends KraPersistableBusinessObjectBase {
         }
         
         return this.kcPersonService;
+    }
+    
+    boolean isEmpty(String str) {
+        return str == null || str.length() == 0;
     }
 }

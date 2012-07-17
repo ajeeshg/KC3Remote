@@ -397,6 +397,7 @@ public final class KeyConstants {
     public static final String ERROR_DUPLICATE_AWARD_TRANSFERRING_SPONSOR = "error.sponsor.duplicate";
     public static final String ERROR_AWARD_EFFECTIVE_DATE = "error.award.effective.date";
     public static final String ERROR_OBLIGATION_EXPIRATION_DATE = "error.obligation.expiration.date";
+    public static final String ERROR_INVALID_CFDA = "error.award.cfda.invalid";
     
     //Award Budget
     public static final String WARNING_AWARD_BUDGET_COSTLIMIT_NOTEQUAL_OBLIGATED = "warning.awardbudget.limitNotEqual.obligated";
@@ -432,6 +433,7 @@ public final class KeyConstants {
     
     //Award Cost Share Confirmation Questions
     public static final String QUESTION_SYNC_UNIT_CONTACTS = "document.question.syncUnitContacts.text";
+    public static final String QUESTION_SYNC_UNIT_DETAILS = "document.question.syncUnitDetails.text";
     
     public static final String QUESTION_SYNC_PANEL = "document.question.syncPanel.text";
     public static final String QUESTION_SYNC_FULL = "document.question.syncAll.text";
@@ -449,6 +451,8 @@ public final class KeyConstants {
 
     
     //Award Direc F and A Distribution
+    public static final String ERROR_AWARD_FANDA_INVALID_RTAES = "error.awardDirectFandADistribution.invalid.rate";
+    public static final String ERROR_AWARD_FANDA_INVALID_RTAES_FOR_SINGLE_RATE = "error.awardDirectFandADistribution.invalid.rate.for.single.rate";
     public static final String ERROR_AWARD_FANDA_DISTRIB_START_DATE_REQUIRED = "error.awardDirectFandADistribution.start.date.required";
     public static final String ERROR_AWARD_FANDA_DISTRIB_END_DATE_REQUIRED = "error.awardDirectFandADistribution.end.date.required";
     public static final String ERROR_AWARD_FANDA_DISTRIB_DIRECT_COST_REQUIRED = "error.awardDirectFandADistribution.direct.cost.required";
@@ -462,10 +466,13 @@ public final class KeyConstants {
     public static final String ERROR_OVERLAPPING_DATE_RANGES = "error.awardDirectFandADistribution.date.ranges.overlap";
     public static final String ERROR_TARGET_START_DATE = "error.awardDirectFandADistribution.invalid.start.date";
     public static final String ERROR_TARGET_END_DATE = "error.awardDirectFandADistribution.invalid.end.date";
-    
+    public static final String WARNING_AWARD_FANDA_DISTRIB_LIMITNOTEQUAL_ANTICIPATED = "warning.awardDirectFandADistribution.limitNotEqual.anticipated";
+    public static final String WARNING_AWARD_FANDA_DISTRIB_BREAKS = "warning.awardDirectFandADistribution.break.existing.dates";
+    public static final String WARNING_AWARD_FANDA_DISTRIB_EXISTS = "warning.awardDirectFandADistribution.exists";
     //Award Indirect Cost Rate
     public static final String ERROR_REQUIRED_APPLICABLE_INDIRECT_COST_RATE = "error.required.applicable.indirect.cost.rate";
     public static final String ERROR_APPLICABLE_INDIRECT_COST_RATE_CAN_NOT_BE_NEGATIVE = "error.applicable.indirect.cost.rate.can.not.be.negative";
+    public static final String ERROR_APPLICABLE_INDIRECT_COST_RATE_OUT_OF_RANGE = "error.applicable.indirect.cost.rate.out.of.range";
     public static final String ERROR_REQUIRED_INDIRECT_RATE_TYPE_CODE = "error.required.indirect.rate.type.code";
     public static final String ERROR_REQUIRED_FISCAL_YEAR = "error.required.fiscal.year";
     public static final String ERROR_REQUIRED_START_DATE= "error.required.start.date";
@@ -483,8 +490,12 @@ public final class KeyConstants {
     public static final String ERROR_BOTH_SPONSOR_AND_ROLODEX_ARE_NOT_SELECTED = "error.both.sponsor.and.rolodex.are.not.selected";
     public static final String ERROR_REQUIRED_ORGANIZATION_FIELD = "error.organizasion.required";
     //Award System Parameters    
-    public static final String MIT_IDC_VALIDATION_ENABLED = "mit.idc.validation.enabled";
-    public static final String MIT_IDC_VALIDATION_ENABLED_VALUE_FOR_COMPARISON = "1";
+    public static final String ENABLE_AWARD_FNA_VALIDATION = "enable.award.FnA.validation";
+    public static final String OPTION_WARNING_ERROR_AWARD_FANDA_VALIDATION = "option.warning.error.award.FnA.validation";
+    public static final String ENABLED_PARAMETER_VALUE_ONE = "1";
+    public static final String ENABLED_PARAMETER_VALUE_TWO = "2";
+    public static final String WARNING = "W";
+    public static final String ERROR = "E";
     public static final String REPORT_CLASS_FOR_PAYMENTS_AND_INVOICES = "reportClassForPaymentsAndInvoices";
     public static final String PERIOD_IN_YEARS_WHEN_FREQUENCY_BASE_IS_FINAL_EXPIRATION_DATE
         = "scheduleGenerationPeriodInYearsWhenFrequencyBaseCodeIsFinalExpirationDate";
@@ -494,6 +505,7 @@ public final class KeyConstants {
     public static final String CLOSE_OUT_REPORT_TYPE_TECHNICAL = "closeoutReportTypeTechnical";
     public static final String CLOSE_OUT_REPORT_TYPE_PATENT = "closeoutReportTypePatent";
     public static final String CLOSE_OUT_REPORT_TYPE_PROPERTY = "closeoutReportTypeProperty";
+    public static final String CLOSE_OUT_REPORT_TYPE_INVOICE = "closeoutReportTypeInvoice";
     public static final String AWARD_ACTIVE_STATUS_CODES_PARM = "AWARD_ACTIVE_STATUS_CODES";
     public static final String AWARD_COST_SHARING_PARM = "AWARD_COST_SHARING";
     public static final String AWARD_FABRICATED_EQUPIMENT_PARM = "AWARD_FABRICATED_EQUIPMENT";
@@ -515,21 +527,36 @@ public final class KeyConstants {
     public static final String AWARD_ACTIVITY_TYPE_CODE = "error.award.createAccount.invalid.activityTypeCode";
     public static final String AWARD_PAYMENT_BASIS_NOT_SPECIFIED = "error.award.createAccount.invalid.paymentBasis";
     public static final String AWARD_PAYMENT_METHOD_NOT_SPECIFIED = "error.award.createAccount.invalid.paymentMethod";
-    public static final String CREATE_ACCOUNT_SERVICE_ERRORS = "error.award.createAccount.serviceErrors";
-    public static final String AWARD_ADDRESS_NOT_COMPLETE = "error.award.createAccount.invalid.piAddress";
     public static final String AWARD_PI_NOT_SPECIFIED = "error.award.createAccount.invalid.pi";
     public static final String AWARD_F_AND_A_RATE_NOT_SPECIFIED = "error.award.createAccount.invalid.rate";
+    public static final String AWARD_ICR_RATE_TYPE_CODE_EMPTY = "error.award.createAccount.icr.rate.type.code.empty";
+    public static final String AWARD_ICR_RATE_CODE_EMPTY = "error.award.createAccount.icr.rate.code.empty";
+    public static final String AWARD_ADDRESS_NOT_COMPLETE = "error.award.createAccount.invalid.piAddress";
     public static final String ACCOUNT_ALREADY_CREATED = "error.award.createAccount.account.already.created";
-    public static final String CANNOT_CONNECT_TO_SERVICE = "error.award.createAccount.cannotConnect";
     public static final String AWARD_ACCOUNT_INVALID_WSDL_URL = "error.award.createAccount.invalid.wsdlurl";
-    public static final String DOCUMENT_NUMBER_NULL = "error.award.createAccount.nullDocumentNumber";
-    public static final String CURRENT_RATE_NOT_SPECIFIED = "error.award.createAccount.invalid.currentRate";
+    public static final String AWARD_ACCOUNT_NUMER_NOT_VALID = "error.award.account.number.invalid";
+    public static final String AWARD_CHART_OF_ACCOUNTS_CODE_NOT_VALID = "error.award.chart.of.accounts.code.invalid";
     public static final String AWARD_ACCOUNT_NUMBER_NOT_SPECIFIED = "error.award.createAccount.invalid.accountNumber";
+    public static final String BOTH_ACCOUNT_AND_CHART_REQUIRED = "error.award.account.number.and.chart.required";
+    public static final String CREATE_ACCOUNT_SERVICE_ERRORS = "error.award.createAccount.serviceErrors";    
+    public static final String CANNOT_CONNECT_TO_SERVICE = "error.award.createAccount.cannotConnect";
+    public static final String CURRENT_RATE_NOT_SPECIFIED = "error.award.createAccount.invalid.currentRate";
+    public static final String DOCUMENT_NUMBER_NULL = "error.award.createAccount.nullDocumentNumber";
+    public static final String DOCUMENT_SAVED_WITH_ERRORS = "error.award.createAccount.saved.with.errors";
+    public static final String NO_PERMISSION_TO_LINK_ACCOUNT = "error.award.link.account.no.permission";
     public static final String NO_PERMISSION_TO_CREATE_ACCOUNT = "error.award.createAccount.noPermission";
-    public static final String KFS_ACCOUNT_CREATION_ENDPOINT = "kfs.accountcreation.webservice.endpoint";
+    public static final String VALIDATION_DID_NOT_OCCUR = "error.award.account.number.not.validated";
+    
+    
     
     // award budget
-    public static final String BUDGET_POSTED = "message.awardBudget.posted";
+    public static final String BUDGET_POSTED = "message.award.budget.adjustment.budget.posted";
+    public static final String BUDGET_ADJUSTMENT_DOCUMENT_NOT_CREATED = "error.award.budget.adjustment.document.not.created";
+    public static final String BUDGET_ADJUSTMENT_DOC_EXISTS = "error.award.budget.adjustment.document.exists";
+    public static final String EMPTY_ACCOUNTING_LINES = "error.award.budget.adjustment.empty.accounting.lines";
+    public static final String FINANCIAL_OBJECT_CODE_MAPPING_NOT_FOUND = "error.award.budget.adjustment.financial.objectCode.mapping.not.found";
+    public static final String FINANCIAL_OBJECT_CODE_MAPPING_EXISTS = "error.award.budget.financial.objectCode.mapping.exists";
+    public static final String ICR_TYPE_CODE_MAPPING_EXISTS = "error.award.budget.icr.type.code.mapping.exists";
     
     //Award template validation errors
     public static final String ERROR_NO_TEMPLATE_CODE = "error.award.templateCode.notFound";
@@ -609,6 +636,7 @@ public final class KeyConstants {
     public static final String ERROR_PROTOCOL_RECORD_COMMITEE_VOTE_MOTION_MISMATCH = "error.protocol.recordcommittee.vote.count.motion.mismatch";
     public static final String ERROR_PROTOCOL_RECORD_COMMITEE_NO_SMR_SRR_REVIEWER_COMMENTS = "error.protocol.recordcommittee.no.smrssr.reviewer.comments";
     public static final String ERROR_PROTOCOL_ASSIGN_TO_AGENDA_NO_ACTION_DATE = "error.protocol.actiondate.required";
+    public static final String ERROR_PROTOCOL_DOCUMENT_STATE_CHANGED = "error.protocol.document.state.changed";
     
     public static final String MESSAGE_PROTOCOL_ACTION_SUCCESSFULLY_COMPLETED = "message.protocol.action.successfully.completed";
     public static final String MESSAGE_ONLINE_REVIEW_ACTION_SUCCESSFULLY_COMPLETED = "message.protocol.onlinereview.document.action.successfully.completed";
@@ -618,7 +646,8 @@ public final class KeyConstants {
     public static final String ERROR_ONLINE_REVIEW_COMMENTS_FINAL_AFTER_REVIEWER_ROUTE = "error.protocol.onlinereview.comments.final.after.reviewer.route";
     public static final String ERROR_ONLINE_REVIEW_ALL_COMMENTS_NOT_FINAL = "error.protocol.onlinereview.all.comments.not.final";
     public static final String ERROR_ONLINE_REVIEW_STATUS_REQUIRED = "error.protocol.onlinereview.status.required";
-    
+    public static final String ERROR_ONLINE_REVIEW_REJECTED_REASON_REQUIRED = "error.protocol.onlinereview.comment.rejected";
+    public static final String ERROR_ONLINE_REVIEW_ATTACHMENT_DESCRIPTION_REQUIRED = "error.protocol.onlinereview.attachment.description.required";
     //  Committee Messages
     public static final String ERROR_COMMITTEE_DUPLICATE_ID = "error.committee.duplicateId";
     public static final String ERROR_COMMITTEE_DUPLICATE_NAME = "error.committee.duplicateName";
@@ -831,8 +860,6 @@ public final class KeyConstants {
     public static final String ERROR_DIRECT_INDIRECT_TRANSACTION = "error.direct.indirect.transaction";
     public static final String WARNING_TRANSACTION_OBLI_LESS_THAN_BUDGET_LIMIT = "warning.transaction.obligated.less.than.limit";
 
-
-    
     //Award Hierarchy
     public static final String ERROR_CREATE_NEW_CHILD_OTHER_AWARD_NOT_SELECTED = "error.create.new.child.other.award.not.selected";
     public static final String ERROR_CREATE_NEW_CHILD_NO_OPTION_SELECTED = "error.create.new.child.no.option.selected";
@@ -864,7 +891,6 @@ public final class KeyConstants {
     public static final String ERROR_S2S_TRUSTSTORE_NOT_FOUND = "error.s2s.truststore.not.found";
     public static final String ERROR_S2S_TRUSTSTORE_CANNOT_READ = "error.s2s.truststore.cannot.read";
 
-
     // Correspondence
     public static final String ERROR_CORRESPONDENCE_TEMPLATE_COMMITTEE_NOT_SPECIFIED = "error.correspondence.template.committee.not.specified";
     public static final String ERROR_CORRESPONDENCE_TEMPLATE_COMMITTEE_DUPLICATE = "error.correspondence.template.committee.duplicate";
@@ -893,6 +919,8 @@ public final class KeyConstants {
     public static final String AWARD_BUDGET_TYPE_REBUDGET = "awardBudgetTypeRebudget";
     
     public static final String ERROR_END_DATE_PRIOR_START_DATE = "error.end.date.prior.start.date";
+    public static final String ERROR_START_DATE_ON_OR_BEFORE = "error.start.date.on.or.before";
+    public static final String ERROR_START_DATE_ON_OR_AFTER = "error.start.date.on.or.after";
     public static final String ERROR_INVALID_UNITCONTACT_PERSON = "error.unitContact.invalid.person";
     public static final String ERROR_MISSING_UNITCONTACT_PERSON = "error.unitContact.missing.person";
    

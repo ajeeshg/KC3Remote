@@ -252,7 +252,7 @@ public class IrbPrintXmlUtilServiceImpl implements IrbPrintXmlUtilService {
                 if (protocol.getProtocolNumber().equals(protocolSubmission.getProtocolNumber())
                         && protocol.getProtocolSubmission() != null
                         && protocol.getProtocolSubmission().getSubmissionNumber().equals(protocolSubmission.getSubmissionNumber())) {
-                    if (reviewCommentsService.getReviewerMinuteCommentsView(minuteEntryInfoBean)){
+                    if (reviewCommentsService.getReviewerCommentsView(minuteEntryInfoBean)){
                         addMinute(committeeSchedule, minuteEntryInfoBean, protocolSubmissionType.addNewMinutes());
                     }
                     
@@ -280,12 +280,12 @@ public class IrbPrintXmlUtilServiceImpl implements IrbPrintXmlUtilService {
     }
     /**
      * 
-     * This method for set the review Minute in Specific Minor Revision Letter.
+     * This method for set the review minute in correspondence Letter.
      * @param committeeSchedule
      * @param protocolSubmission
      * @param submissionsType
      */
-    public void setProcotolReviewMinutes(CommitteeSchedule committeeSchedule,
+    public void setProtocolReviewMinutes(CommitteeSchedule committeeSchedule,
             org.kuali.kra.irb.actions.submit.ProtocolSubmission protocolSubmission, Submissions submissionsType) {
         List<CommitteeScheduleMinute> minutes = committeeSchedule.getCommitteeScheduleMinutes();
         for (CommitteeScheduleMinute minuteEntryInfoBean : minutes) {
@@ -294,7 +294,7 @@ public class IrbPrintXmlUtilServiceImpl implements IrbPrintXmlUtilService {
                 if (protocol.getProtocolNumber().equals(protocolSubmission.getProtocolNumber())
                       && protocol.getProtocolSubmission() != null
                         && protocol.getProtocolSubmission().getSubmissionNumber().equals(protocolSubmission.getSubmissionNumber())) {
-                    if (reviewCommentsService.getReviewerAcceptedCommentsView(minuteEntryInfoBean)){
+                    if (reviewCommentsService.getReviewerCommentsView(minuteEntryInfoBean)){
                         addMinute(committeeSchedule, minuteEntryInfoBean, submissionsType.addNewMinutes());
                     }
                     

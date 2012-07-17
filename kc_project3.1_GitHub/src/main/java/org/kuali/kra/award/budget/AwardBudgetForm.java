@@ -139,8 +139,7 @@ public class AwardBudgetForm extends BudgetForm {
      * @return true if any FnA rates defined in award
      */
     public String getFnARateFlagEditable(){
-        //Making OH rate type alwz editable
-        return "true";//Boolean.toString(getAwardBudgetDocument().getParentDocument().getBudgetParent().getAwardFandaRate().isEmpty());
+        return Boolean.toString(!getAwardBudgetDocument().getAwardBudget().getOhRatesNonEditable());
     }
 
     /*
@@ -203,6 +202,16 @@ public class AwardBudgetForm extends BudgetForm {
         HeaderNavigation[] result = new HeaderNavigation[resultList.size()];
         resultList.toArray(result);
         return result;
+    }
+    
+    /**
+     * 
+     * @see org.kuali.kra.budget.web.struts.form.BudgetForm#getCanModifyBudgetRates()
+     */
+    @Override
+    public boolean getCanModifyBudgetRates() {
+        boolean retVal = this.getEditingMode().containsKey("modifyBudgets");
+        return retVal;
     }
 
     

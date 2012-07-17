@@ -30,11 +30,13 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.kuali.kra.infrastructure.KeyConstants;
+import org.kuali.kra.infrastructure.KraServiceLocator;
 import org.kuali.kra.s2s.S2SException;
 import org.kuali.kra.s2s.bo.S2sOppForms;
 import org.kuali.kra.s2s.formmapping.FormMappingInfo;
 import org.kuali.kra.s2s.formmapping.FormMappingLoader;
 import org.kuali.kra.s2s.generator.S2SGeneratorNotFoundException;
+import org.kuali.kra.s2s.service.S2SUtilService;
 import org.kuali.kra.s2s.util.S2SConstants;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -62,6 +64,9 @@ public class OpportunitySchemaParser {
     private static final String IMPORT = "import";
     private static final String XSD_NS = "http://www.w3.org/2001/XMLSchema";
     private static final Log LOG = LogFactory.getLog(OpportunitySchemaParser.class);
+    //MSU Added changes - Below
+    private S2SUtilService s2SUtilService;  
+    //MSU Added changes - Above
 
     /**
      * This method fetches all the forms required from a given schema of opportunity
@@ -71,13 +76,17 @@ public class OpportunitySchemaParser {
      */
     public ArrayList<S2sOppForms> getForms(String schema) throws S2SException{
         boolean mandatory;
-        boolean available;
-      //MSU Added Below
-    	Properties systemSettings = System.getProperties();
-        systemSettings.put("proxySet", "true");
-        systemSettings.put("http.proxyHost","netman.ais.msu.edu");
-        systemSettings.put("http.proxyPort", "3128");
-      //MSU Added Above
+        boolean available;        
+        //MSU Added Below        
+        if(getS2SUtilService().getProperty(S2SConstants.GRANTS_GOV_USE_PROXY).equalsIgnoreCase("true")){
+        	Properties systemSettings = System.getProperties();
+            systemSettings.put("proxySet", "true"); 
+            systemSettings.put("http.proxyHost",getS2SUtilService().getProperty(S2SConstants.GRANTS_GOV_PROXY_HOST));
+            systemSettings.put("http.proxyPort", getS2SUtilService().getProperty(S2SConstants.GRANTS_GOV_PROXY_PORT));            
+            //systemSettings.put("http.proxyHost","netman.ais.msu.edu");
+            //systemSettings.put("http.proxyPort", "3128");        	
+        }
+        //MSU Added Above
         
         DocumentBuilderFactory domFactory = DocumentBuilderFactory.newInstance();
         domFactory.setNamespaceAware(true);
@@ -155,4 +164,13 @@ public class OpportunitySchemaParser {
             return false;
         }
     }
+    
+    //MSU Added Below
+    protected S2SUtilService getS2SUtilService() {
+        if (this.s2SUtilService == null) {
+            this.s2SUtilService = KraServiceLocator.getService(S2SUtilService.class);        
+        }
+        return this.s2SUtilService;
+    }
+    //MSU Added Above
 }

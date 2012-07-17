@@ -35,8 +35,6 @@ public class AwardValuesFinder extends KeyValuesBase{
     
     public List<KeyLabelPair> getKeyValues() {
         List<KeyLabelPair> keyValues = new ArrayList<KeyLabelPair>();
-        keyValues.add(new KeyLabelPair("", "select:"));
-        keyValues.add(new KeyLabelPair(Constants.AWARD_HIERARCHY_DEFAULT_PARENT_OF_ROOT, "External"));
         TimeAndMoneyForm timeAndMoneyForm = (TimeAndMoneyForm) GlobalVariables.getKualiForm();        
         TimeAndMoneyDocument document = timeAndMoneyForm.getTimeAndMoneyDocument();
         

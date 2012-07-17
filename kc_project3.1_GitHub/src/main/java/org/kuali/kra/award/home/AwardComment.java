@@ -51,6 +51,7 @@ public class AwardComment extends AwardAssociate implements Comparable<AwardComm
     @AwardSyncableProperty
     private String comments; 
     
+    private Long awardId;
    
     private CommentType commentType; 
     
@@ -126,6 +127,19 @@ public class AwardComment extends AwardAssociate implements Comparable<AwardComm
         return true;
     }
 
+    public boolean sameText(AwardComment compare) {
+        if (this.getComments() == compare.getComments()) {
+            return true;
+        }
+        if (!this.isEntered() && !compare.isEntered()) {
+            return true;
+        }
+        if (!this.isEntered() || !compare.isEntered()) {
+            return false;
+        }
+        return comments.equals(compare.getComments());
+    }
+    
     /**
      * Gets the commentTypeCode attribute. 
      * @return Returns the commentTypeCode.
@@ -191,6 +205,13 @@ public class AwardComment extends AwardAssociate implements Comparable<AwardComm
         this.commentTypeCode = commentType != null ? commentType.getCommentTypeCode() : null;
     }
     
+    public Long getAwardId() {
+        return awardId;
+    }
+    
+    public void setAwardId(Long awardId) {
+        this.awardId = awardId;
+    }
     
 
     /**
@@ -216,5 +237,15 @@ public class AwardComment extends AwardAssociate implements Comparable<AwardComm
         return awardCommentArg.getUpdateTimestamp().compareTo(this.getUpdateTimestamp());
     }
 
-
+    public void disableComment() {
+        setVersionNumber(new Long (-1));
+    }
+    
+    public boolean isDisabled() {
+        return new Long(-1).equals(getVersionNumber());
+    }
+    
+    public boolean isEntered() {
+        return comments != null && comments.length() > 0;
+    }
 }

@@ -270,12 +270,6 @@ public class GrantsGovConnectorServiceImpl implements GrantsGovConnectorService 
         httpClientPolicy.setConnectionTimeout(0);
         httpClientPolicy.setReceiveTimeout(0);
         httpClientPolicy.setAllowChunking(false);
-        
-        //MSU Added code Below
-        httpClientPolicy.setProxyServer("netman.ais.msu.edu");
-        httpClientPolicy.setProxyServerPort(3128);        
-        //MSU Added code Above
-        
         HTTPConduit conduit = (HTTPConduit) client.getConduit();
         conduit.setClient(httpClientPolicy);
         TLSClientParameters tlsConfig = new TLSClientParameters();

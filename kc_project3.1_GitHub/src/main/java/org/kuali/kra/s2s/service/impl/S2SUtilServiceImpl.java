@@ -34,8 +34,6 @@ import org.apache.commons.logging.LogFactory;
 import org.kuali.kra.award.home.Award;
 import org.kuali.kra.award.home.ContactRole;
 import org.kuali.kra.bo.CitizenshipType;
-import org.kuali.kra.bo.CoeusModule;
-import org.kuali.kra.bo.CoeusSubModule;
 import org.kuali.kra.bo.KcPerson;
 import org.kuali.kra.bo.Organization;
 import org.kuali.kra.bo.Rolodex;
@@ -60,7 +58,6 @@ import org.kuali.kra.proposaldevelopment.service.ProposalDevelopmentS2sQuestionn
 import org.kuali.kra.proposaldevelopment.service.ProposalDevelopmentService;
 import org.kuali.kra.questionnaire.Questionnaire;
 import org.kuali.kra.questionnaire.QuestionnaireQuestion;
-import org.kuali.kra.questionnaire.QuestionnaireService;
 import org.kuali.kra.questionnaire.answer.Answer;
 import org.kuali.kra.questionnaire.answer.AnswerHeader;
 import org.kuali.kra.questionnaire.answer.QuestionnaireAnswerService;
@@ -92,7 +89,8 @@ import org.kuali.kra.infrastructure.CitizenshipTypes;
  */
 public class S2SUtilServiceImpl implements S2SUtilService {
 
-	private BusinessObjectService businessObjectService;
+	private static final String FEDERAL_ID_COMES_FROM_CURRENT_AWARD = "FEDERAL_ID_COMES_FROM_CURRENT_AWARD";
+    private BusinessObjectService businessObjectService;
 	private DateTimeService dateTimeService;
 	private KualiConfigurationService kualiConfigurationService;
 	private ParameterService parameterService;
@@ -329,7 +327,7 @@ public class S2SUtilServiceImpl implements S2SUtilService {
      * @see org.kuali.kra.s2s.service.S2SUtilService#getFederalId(org.kuali.kra.proposaldevelopment.document.ProposalDevelopmentDocument)
      */
     public String getFederalId(ProposalDevelopmentDocument proposalDevelopmentDocument) {
-        String federalIdComesFromAwardStr = parameterService.getParameterValue(ProposalDevelopmentDocument.class, "FEDERAL_ID_COMES_FROM_CURRENT_AWARD");
+        String federalIdComesFromAwardStr = parameterService.getParameterValue(ProposalDevelopmentDocument.class, FEDERAL_ID_COMES_FROM_CURRENT_AWARD);
         Boolean federalIdComesFromAward = federalIdComesFromAwardStr != null && federalIdComesFromAwardStr.equalsIgnoreCase("Y");
         DevelopmentProposal proposal = proposalDevelopmentDocument.getDevelopmentProposal();
         Award currentAward = null;
@@ -1191,5 +1189,13 @@ public class S2SUtilServiceImpl implements S2SUtilService {
     public void setProposalDevelopmentS2sQuestionnaireService(
             ProposalDevelopmentS2sQuestionnaireService proposalDevelopmentS2sQuestionnaireService) {
         this.proposalDevelopmentS2sQuestionnaireService = proposalDevelopmentS2sQuestionnaireService;
+    }
+
+    public String removeTimezoneFactor(String applicationXmlText) {
+        SimpleDateFormat timeFormat = new SimpleDateFormat("Z");
+        String offset = timeFormat.format(dateTimeService.getCurrentDate());
+        String offsetString = offset.substring(0,3) +":"+offset.substring(3);
+        String filteredApplicationStr = StringUtils.remove(applicationXmlText, offsetString);
+        return filteredApplicationStr;
     }
 }

@@ -15,6 +15,8 @@
  */
 package org.kuali.kra.external.award;
 
+import java.util.List;
+
 import javax.jws.WebParam;
 import javax.jws.WebService;
 import javax.jws.soap.SOAPBinding;
@@ -23,6 +25,17 @@ import javax.jws.soap.SOAPBinding;
 @SOAPBinding(style = SOAPBinding.Style.DOCUMENT, use = SOAPBinding.Use.LITERAL, parameterStyle = SOAPBinding.ParameterStyle.WRAPPED)
 public interface AwardAccountService {
 
-    AwardAccountDTO getAwardAccount(@WebParam(name= "financialAccountNumber") String financialAccountNumber);
+    
+    /**
+     * This method returns all the awards linked to a financial account number
+     * and the chart code
+     * @param financialAccountNumber
+     * @return
+     */    
+    List<AwardAccountDTO> getAwardAccounts(
+                                          @WebParam(name= "financialAccountNumber") 
+                                          String financialAccountNumber,
+                                          @WebParam(name="chartOfAccounts")
+                                          String chartOfAccounts);
     
 }

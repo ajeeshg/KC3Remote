@@ -352,18 +352,6 @@ public class BudgetForm extends BudgetVersionFormBase implements CostShareFuncti
     }
     
     private ExtraButton configureReturnToParentTopButton() {
-//        ExtraButton returnToParentButton = new ExtraButton();
-//        if(AwardDocument.DOCUMENT_TYPE_CODE.equals(getBudgetDocument().getParentDocumentTypeCode())){
-//            returnToParentButton.setExtraButtonProperty(RETURN_TO_AWARD_METHOD_TO_CALL);
-//            returnToParentButton.setExtraButtonSource(buildExtraButtonSourceURI("tinybutton-retprop.gif"));
-//            returnToParentButton.setExtraButtonAltText(RETURN_TO_AWARD_ALT_TEXT);
-//        }else{
-//            returnToParentButton.setExtraButtonProperty(RETURN_TO_PROPOSAL_METHOD_TO_CALL);
-//            returnToParentButton.setExtraButtonSource(buildExtraButtonSourceURI("tinybutton-retprop.gif"));
-//            returnToParentButton.setExtraButtonAltText(RETURN_TO_AWARD_ALT_TEXT);
-//        }
-//
-//        return returnToParentButton;
         BudgetParentDocument budgetParentDocument = getDocument().getParentDocument();
         return budgetParentDocument!=null?getDocument().getParentDocument().configureReturnToParentTopButton():new ExtraButton();
     }
@@ -950,6 +938,17 @@ public class BudgetForm extends BudgetVersionFormBase implements CostShareFuncti
     public String getProjectPeriodLabel() {
         String label = KraServiceLocator.getService(CostShareService.class).getCostShareLabel(false);
         return label;
+    }
+    
+    /**
+     * 
+     * This method determines if the budget rates are editable.  Note, this function should be overriden if this form
+     * gets extended.  Such as in the case of AwardBudgetForm, as that form has different requirements for editing budget rates.
+     * @return
+     */
+    public boolean getCanModifyBudgetRates() {
+        boolean retVal = this.getEditingMode().containsKey("modifyProposalBudgetRates");
+        return retVal;
     }
 
 }

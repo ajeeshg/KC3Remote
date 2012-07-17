@@ -18,6 +18,7 @@ package org.kuali.kra.award;
 import static org.kuali.kra.infrastructure.KeyConstants.AWARD_ATTACHMENT_FILE_REQUIRED;
 import static org.kuali.kra.infrastructure.KeyConstants.AWARD_ATTACHMENT_TYPE_CODE_REQUIRED;
 
+import java.sql.Date;
 import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
@@ -474,6 +475,7 @@ public class AwardDocumentRule extends ResearchDocumentRuleBase implements Award
         return new AwardCommentsRuleImpl().processAwardCommentsBusinessRules(ruleEvent);
     }
     
+      
     private boolean processBenefitsRatesBusinessRules(Document document) {
         boolean valid = true;
         ErrorMap errorMap = GlobalVariables.getErrorMap();
@@ -484,8 +486,13 @@ public class AwardDocumentRule extends ResearchDocumentRuleBase implements Award
         if(StringUtils.equalsIgnoreCase(
                 getKualiConfigurationService().getParameterValue(Constants.PARAMETER_MODULE_AWARD, 
                         ParameterConstants.DOCUMENT_COMPONENT,
-                        KeyConstants.MIT_IDC_VALIDATION_ENABLED),
-                        KeyConstants.MIT_IDC_VALIDATION_ENABLED_VALUE_FOR_COMPARISON)){
+                        KeyConstants.ENABLE_AWARD_FNA_VALIDATION),
+                        KeyConstants.ENABLED_PARAMETER_VALUE_ONE) || 
+                        StringUtils.equalsIgnoreCase(
+                                getKualiConfigurationService().getParameterValue(Constants.PARAMETER_MODULE_AWARD, 
+                                        ParameterConstants.DOCUMENT_COMPONENT,
+                                        KeyConstants.ENABLE_AWARD_FNA_VALIDATION),
+                                        KeyConstants.ENABLED_PARAMETER_VALUE_TWO)){
             String errorPath = "benefitsRates.rates";
             errorMap.addToErrorPath(errorPath);
             AwardBenefitsRatesRuleEvent event = new AwardBenefitsRatesRuleEvent(errorPath, 
@@ -499,7 +506,6 @@ public class AwardDocumentRule extends ResearchDocumentRuleBase implements Award
         errorMap.removeFromErrorPath(DOCUMENT_ERROR_PATH);
         return valid;
     }
-    
     
     /**
     *
@@ -574,30 +580,28 @@ public class AwardDocumentRule extends ResearchDocumentRuleBase implements Award
         return new AwardFandaRateRule().processSaveFandaRateBusinessRules(awardFandaRateSaveEvent);
     }
     
+    /**
+     * 
+     * This method...
+     * @param document
+     * @return
+     */
     public boolean processAwardReportTermBusinessRules(Document document) {
-        boolean retval = true;
-        
-        int i=0;
-        
-        GlobalVariables.getErrorMap().addToErrorPath(DOCUMENT_ERROR_PATH);
-        GlobalVariables.getErrorMap().addToErrorPath(AWARD_ERROR_PATH);        
-        
         AwardDocument awardDocument = (AwardDocument) document;
-        for (AwardReportTerm awardReportTerm : awardDocument.getAward().getAwardReportTermItems()) {
-            retval &= evaluateBusinessRuleForReportCodeField(awardReportTerm, i);
-            if (StringUtils.isNotBlank(awardReportTerm.getFrequencyCode())) {
-                retval &= evaluateBusinessRuleForFrequencyCodeField(awardReportTerm, i);
-                retval &= evaluateBusinessRuleForFrequencyBaseCodeField(awardReportTerm, i);
-            }
-            retval &= evaluateBusinessRuleForRecipients(awardReportTerm, i);
-            i++;
-        }
-        
-        GlobalVariables.getErrorMap().removeFromErrorPath(AWARD_ERROR_PATH);
-        GlobalVariables.getErrorMap().removeFromErrorPath(DOCUMENT_ERROR_PATH);
-        
-        return retval;
+        AwardReportTerm awardReportTermItem = awardDocument.getAward().getAwardReportTermItems().isEmpty() ? null : awardDocument.getAward().getAwardReportTermItems().get(0);
+        AwardReportTermRuleEvent event = new AwardReportTermRuleEvent(AWARD_ERROR_PATH_PREFIX, awardDocument, awardDocument.getAward(), awardReportTermItem);
+        return processAwardReportTermBusinessRules(event);
     }
+    
+    /**
+     * 
+     * @see org.kuali.kra.award.paymentreports.awardreports.AwardReportTermRule#processAwardReportTermBusinessRules(
+     *          org.kuali.kra.award.paymentreports.awardreports.AwardReportTermRuleEvent)
+     */
+    public boolean processAwardReportTermBusinessRules(AwardReportTermRuleEvent event){
+        return new AwardReportTermRuleImpl().processAwardReportTermBusinessRules(event);
+    }
+    
     
     protected boolean evaluateBusinessRuleForReportCodeField(AwardReportTerm awardReportTerm, int index){
         boolean retval = isValidReportCode(awardReportTerm, getReportCodes(awardReportTerm.getReportClassCode()));
@@ -711,14 +715,7 @@ public class AwardDocumentRule extends ResearchDocumentRuleBase implements Award
         return frequencyBaseCodeValuesFinder.getKeyValues();
     }
     
-    /**
-     * 
-     * @see org.kuali.kra.award.paymentreports.awardreports.AwardReportTermRule#processAwardReportTermBusinessRules(
-     *          org.kuali.kra.award.paymentreports.awardreports.AwardReportTermRuleEvent)
-     */
-    public boolean processAwardReportTermBusinessRules(AwardReportTermRuleEvent event){
-        return new AwardReportTermRuleImpl().processAwardReportTermBusinessRules(event);
-    }
+    
     
     /**
      * 
@@ -763,10 +760,10 @@ public class AwardDocumentRule extends ResearchDocumentRuleBase implements Award
      * This method...
      * @param event
      * @return
-     */
+     
     public boolean processAwardReportTermEvent(AwardReportTermRuleEvent event){
         return new AwardReportTermRuleImpl().processAwardReportTermBusinessRules(event);
-    }
+    }*/
     
     /**
      * 
@@ -840,23 +837,44 @@ public class AwardDocumentRule extends ResearchDocumentRuleBase implements Award
         errorMap.addToErrorPath(AWARD_ERROR_PATH);
 
         boolean success = true;
-        if (award.getAwardEffectiveDate() != null 
-                && award.getAwardAmountInfos().get(award.getIndexOfLastAwardAmountInfo()).getFinalExpirationDate() != null) {
-            if (award.getAwardEffectiveDate().after(
-                    award.getAwardAmountInfos().get(award.getIndexOfLastAwardAmountInfo()).getFinalExpirationDate())) {
-                success = false;
-                errorMap.putError("awardAmountInfos["+award.getIndexOfLastAwardAmountInfo()+"].finalExpirationDate", KeyConstants.ERROR_END_DATE_PRIOR_START_DATE,
-                        new String[] {"Project End Date", "Project Start Date"});
-            }
+        int lastIndex = award.getIndexOfLastAwardAmountInfo();
+        // make sure start dates are before end dates
+        Date effStartDate = award.getAwardEffectiveDate(); 
+        Date effEndDate = award.getAwardAmountInfos().get(lastIndex).getFinalExpirationDate();
+        
+        // make sure Project Start Date <= Obligation Start Date <= Obligation End Date <= Project Start Date
+        if (effStartDate != null && effEndDate != null && effStartDate.after(effEndDate))  {
+            success = false;
+            errorMap.putError("awardAmountInfos["+lastIndex+"].finalExpirationDate", KeyConstants.ERROR_START_DATE_ON_OR_BEFORE,
+                    new String[] {"Project Start Date", "Project End Date"});
         }
-        if (award.getAwardAmountInfos().get(award.getIndexOfLastAwardAmountInfo()).getCurrentFundEffectiveDate() != null 
-                && award.getAwardAmountInfos().get(award.getIndexOfLastAwardAmountInfo()).getObligationExpirationDate() != null) {
-            if (award.getAwardAmountInfos().get(award.getIndexOfLastAwardAmountInfo()).getCurrentFundEffectiveDate().after(
-                    award.getAwardAmountInfos().get(award.getIndexOfLastAwardAmountInfo()).getObligationExpirationDate())) {
-                success = false;
-                errorMap.putError("awardAmountInfos["+award.getIndexOfLastAwardAmountInfo()+"].obligationExpirationDate", KeyConstants.ERROR_END_DATE_PRIOR_START_DATE,
-                        new String[] {"Obligation End Date", "Obligation Start Date"});
-            }
+        Date oblStartDate = award.getAwardAmountInfos().get(lastIndex).getCurrentFundEffectiveDate(); 
+        Date oblEndDate = award.getAwardAmountInfos().get(lastIndex).getObligationExpirationDate();
+        if (oblStartDate != null && oblEndDate != null && oblStartDate.after(oblEndDate)) {
+            success = false;
+            errorMap.putError("awardAmountInfos["+lastIndex+"].obligationExpirationDate", KeyConstants.ERROR_START_DATE_ON_OR_BEFORE,
+                    new String[] {"Obligation Start Date", "Obligation End Date"});
+        }
+        // make sure obligation dates are within effective dates
+        if (oblStartDate != null && effStartDate != null && oblStartDate.before(effStartDate)) {
+            success = false;
+            errorMap.putError("awardAmountInfos["+lastIndex+"].currentFundEffectiveDate", KeyConstants.ERROR_START_DATE_ON_OR_BEFORE,
+                    new String[] {"Project Start Date","Obligation Start Date"});
+        }
+        if (oblEndDate != null && effStartDate != null && oblEndDate.before(effStartDate)) {
+            success = false;
+            errorMap.putError("awardAmountInfos["+lastIndex+"].obligationExpirationDate", KeyConstants.ERROR_START_DATE_ON_OR_BEFORE,
+                    new String[] {"Project Start Date","Obligation End Date"});
+        }
+        if (oblStartDate != null && effEndDate != null && oblStartDate.after(effEndDate)) {
+            success = false;
+            errorMap.putError("awardAmountInfos["+lastIndex+"].currentFundEffectiveDate", KeyConstants.ERROR_START_DATE_ON_OR_BEFORE,
+                    new String[] {"Obligation Start Date", "Project End Date"});
+        }
+        if (oblEndDate != null && effEndDate != null && oblEndDate.after(effEndDate)) {
+            success = false;
+            errorMap.putError("awardAmountInfos["+lastIndex+"].obligationExpirationDate", KeyConstants.ERROR_START_DATE_ON_OR_BEFORE,
+                    new String[] {"Obligation End Date", "Project End Date"});
         }
 
         errorMap.removeFromErrorPath(AWARD_ERROR_PATH);

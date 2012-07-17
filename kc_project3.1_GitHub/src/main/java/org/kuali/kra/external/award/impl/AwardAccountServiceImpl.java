@@ -40,56 +40,83 @@ public class AwardAccountServiceImpl implements AwardAccountService {
     private BusinessObjectService businessObjectService;
     private static final Log LOG = LogFactory.getLog(AwardAccountServiceImpl.class);
     private ParameterService parameterService;
-
+   
     /**
+     * This method returns all the awards linked to a financial account number and the chart
      * @see org.kuali.kra.external.award.AwardAccountService#getAwardAccount(java.lang.String)
      */
-    public AwardAccountDTO getAwardAccount(String financialAccountNumber) {
-        
-        Award award = getAward(financialAccountNumber); 
-        AwardAccountDTO awardAccountDTO = new AwardAccountDTO();
-        if (ObjectUtils.isNotNull(award)) {
-            awardAccountDTO.setProposalFederalPassThroughAgencyNumber(award.getSponsorCode());
-            //sponsor award id same as sponsor award number
-            awardAccountDTO.setGrantNumber(award.getSponsorAwardNumber());
-            // how to get IP id from award
-            awardAccountDTO.setInstitutionalproposalId(getProposalId(award));
-            awardAccountDTO.setAwardId(award.getAwardId());
-            awardAccountDTO.setProjectDirector(award.getPrincipalInvestigator().getPersonId());
-            // send the award number which is the proposal number on the KFS side
-            awardAccountDTO.setProposalNumber(award.getAwardNumber());
-            awardAccountDTO.setSponsorCode(award.getSponsorCode());
-            awardAccountDTO.setSponsorName(award.getSponsorName());
-            awardAccountDTO.setFederalSponsor(isFederalSponsor(award));
-            awardAccountDTO.setAwardTitle(award.getTitle());
-            awardAccountDTO.setPrimeSponsorCode(award.getPrimeSponsorCode());
-            // where is the prime sponsor agency number?
-            if(ObjectUtils.isNotNull(award.getPrimeSponsor())) {
-                awardAccountDTO.setPrimeSponsorName(award.getPrimeSponsor().getSponsorName());
-            }
-            else {
-                awardAccountDTO.setPrimeSponsorName("");
+    public List<AwardAccountDTO> getAwardAccounts(String financialAccountNumber, String chartOfAccounts) {
+        if (ObjectUtils.isNull(financialAccountNumber) || ObjectUtils.isNull(chartOfAccounts)) {
+            LOG.warn("One or both of the criteria sent was null.");
+            return null;
+        }
+        List<Award> awards = getAwards(financialAccountNumber, chartOfAccounts);
+        return getAwardAccountDTOs(awards); 
+    }
+    
+    protected List<AwardAccountDTO> getAwardAccountDTOs(List<Award> awards) {
+        List<AwardAccountDTO> awardDTOs = new ArrayList<AwardAccountDTO>();
+
+        if (ObjectUtils.isNotNull(awards)) {
+            for (Award award : awards) {
+                AwardAccountDTO awardAccountDTO = new AwardAccountDTO();
+                awardAccountDTO.setProposalFederalPassThroughAgencyNumber(award.getSponsorCode());
+                //sponsor award id same as sponsor award number
+                awardAccountDTO.setGrantNumber(award.getSponsorAwardNumber());
+                // how to get IP id from award
+                awardAccountDTO.setInstitutionalproposalId(getProposalId(award));
+                awardAccountDTO.setAwardId(award.getAwardId());
+                if (ObjectUtils.isNotNull(award.getPrincipalInvestigator())) {
+                    awardAccountDTO.setProjectDirector(award.getPrincipalInvestigator().getPersonId());
+                } else {
+                    awardAccountDTO.setProjectDirector(null);
+                }
+                
+                // send the award number which is the proposal number on the KFS side
+                awardAccountDTO.setProposalNumber(award.getAwardNumber());
+                awardAccountDTO.setSponsorCode(award.getSponsorCode());
+                awardAccountDTO.setSponsorName(award.getSponsorName());
+                awardAccountDTO.setFederalSponsor(isFederalSponsor(award));
+                awardAccountDTO.setAwardTitle(award.getTitle());
+                awardAccountDTO.setPrimeSponsorCode(award.getPrimeSponsorCode());
+                
+                if (ObjectUtils.isNotNull(award.getPrimeSponsor())) {
+                    awardAccountDTO.setPrimeSponsorName(award.getPrimeSponsor().getSponsorName());
+                    awardAccountDTO.setPrimeSponsorTypeCode(award.getPrimeSponsor().getSponsorTypeCode());
+                } else {
+                    awardAccountDTO.setPrimeSponsorTypeCode(null);
+                    awardAccountDTO.setPrimeSponsorName(null);
+                }
+                
+                if(ObjectUtils.isNotNull(award.getSponsor())) {
+                    awardAccountDTO.setSponsorTypeCode(award.getSponsor().getSponsorTypeCode());
+                } else {
+                    awardAccountDTO.setSponsorTypeCode(null);
+                }
+                awardDTOs.add(awardAccountDTO);
             }
             
-        } else {
-            awardAccountDTO.setErrorMessage("There is no award with the financial account number " + financialAccountNumber);
-        }
-        return awardAccountDTO;
+        } 
+        return awardDTOs;
     }
 
+ 
     /**
      * This method returns the proposal ID related to an award
      * Can award have multiple P IDs?
      * @param award
      * @return
      */
-    public Long getProposalId(Award award) {
+    protected Long getProposalId(Award award) {
         String proposalNumber = award.getProposalNumber();
         List<InstitutionalProposal> proposals;
         HashMap<String, String> searchCriteria =  new HashMap<String, String>();
         searchCriteria.put("proposalNumber", proposalNumber);  
         proposals = new ArrayList<InstitutionalProposal>(businessObjectService.findMatching(InstitutionalProposal.class, searchCriteria));
-        return proposals.isEmpty() ? null : proposals.get(0).getProposalId();
+        if (ObjectUtils.isNotNull(proposals)) {
+            return proposals.isEmpty() ? null : proposals.get(0).getProposalId();
+        }
+        return null;
     }
     
     /**
@@ -101,34 +128,61 @@ public class AwardAccountServiceImpl implements AwardAccountService {
     protected boolean isFederalSponsor(Award award) {
        
         String federalSponsorTypeCode = parameterService.getParameterValue(AwardDocument.class, Constants.FEDERAL_SPONSOR_TYPE_CODE);
-        String awardSponsorType = award.getSponsor().getSponsorTypeCode();
-            
         //If the sponsor type or prime sponsor type is federal, then document should be routed, return true.
-        if ((ObjectUtils.isNotNull(awardSponsorType) && awardSponsorType.equals(federalSponsorTypeCode)) 
-            || (ObjectUtils.isNotNull(award.getPrimeSponsor()) 
-            && award.getPrimeSponsor().getSponsorType().getSponsorTypeCode().equals(federalSponsorTypeCode))) {
-            return true;
-        }         
-        return false;
+        return isSponsorTypeFederal(award, federalSponsorTypeCode) || isPrimeSponsorFederal(award, federalSponsorTypeCode);
     }
 
     /**
-     * This helper method returns the award based on the financial account number.
-     * @param financialAccountNumber
+     * This method checks if prime sponsor is federal
+     * @param award
+     * @param federalSponsorTypeCode
      * @return
      */
-    protected Award getAward(String financialAccountNumber) {
+    protected boolean isPrimeSponsorFederal(Award award, String federalSponsorTypeCode) {
+        if (ObjectUtils.isNotNull(award.getPrimeSponsor()) && ObjectUtils.isNotNull(award.getPrimeSponsor().getSponsorType()))  {
+            if (award.getPrimeSponsor().getSponsorType().getSponsorTypeCode().equals(federalSponsorTypeCode)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    
+    /**
+     * This method checks if sponsor is federal.
+     * @param award
+     * @param federalSponsorTypeCode
+     * @return
+     */
+    protected boolean isSponsorTypeFederal(Award award, String federalSponsorTypeCode) {
+        if (ObjectUtils.isNotNull(award.getSponsor()) && ObjectUtils.isNotNull(award.getSponsor().getSponsorTypeCode())) {
+            if (award.getSponsor().getSponsorTypeCode().equals(federalSponsorTypeCode)) {
+                return true;
+            }
+        }
+        return false;
+    }
+   
+    /**
+     * This method returns awards based on the account number and chart of account
+     * @param financialAccountNumber
+     * @param chartOfAccounts
+     * @return
+     */
+    protected List<Award> getAwards(String financialAccountNumber, String chartOfAccounts) {
         List<Award> awards;
         HashMap<String, String> searchCriteria =  new HashMap<String, String>();
         searchCriteria.put("accountNumber", financialAccountNumber);  
+        searchCriteria.put("financialChartOfAccountsCode", chartOfAccounts);
         awards = new ArrayList<Award>(businessObjectService.findMatching(Award.class, searchCriteria));
         if (ObjectUtils.isNotNull(awards) && !awards.isEmpty()) {
-            return awards.get(0);
+            return awards;
         } else {
-            LOG.warn("No award found for the corresponding account number.");
+            LOG.warn("No award found for the account number " + financialAccountNumber + " and chart " + "chartOfAccounts");            
             return null;
         }   
     }
+
     
     /**
      * Sets the businessObjectService attribute value. Injected by Spring.
@@ -147,5 +201,5 @@ public class AwardAccountServiceImpl implements AwardAccountService {
     public void setParameterService(ParameterService parameterService) {
         this.parameterService = parameterService;
     }
- 
+
 }

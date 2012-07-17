@@ -17,6 +17,7 @@ package org.kuali.kra.meeting;
 
 import java.sql.Timestamp;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,7 +34,7 @@ import org.kuali.kra.infrastructure.RoleConstants;
 import org.kuali.kra.irb.Protocol;
 import org.kuali.kra.irb.actions.submit.ProtocolReviewer;
 import org.kuali.kra.irb.onlinereview.ProtocolOnlineReview;
-
+import org.kuali.kra.irb.onlinereview.ProtocolReviewable;
 import org.kuali.rice.kim.service.RoleManagementService;
 import org.kuali.rice.kim.service.RoleService;
 import org.kuali.rice.kns.service.BusinessObjectService;
@@ -43,7 +44,7 @@ import org.kuali.rice.kns.util.GlobalVariables;
  * 
  * This is BO class for committee schedule minute. 
  */
-public class CommitteeScheduleMinute extends KraPersistableBusinessObjectBase implements Cloneable { 
+public class CommitteeScheduleMinute extends ProtocolReviewable implements Cloneable { 
 
     private static final long serialVersionUID = -2294619582524055884L;
     private static final String PERSON_NOT_FOUND_FORMAT_STRING = "%s (not found)";
@@ -88,6 +89,29 @@ public class CommitteeScheduleMinute extends KraPersistableBusinessObjectBase im
     @SkipVersioning
     private transient String updateUserFullName;
     private transient boolean displayReviewerName;
+    
+    /*
+     * This comparator orders CommitteeScheduleMinute by entry type first and then by entry type detail (if available)
+     */
+    public static final Comparator<CommitteeScheduleMinute> entryTypeComparator = new Comparator<CommitteeScheduleMinute>() {
+
+        public int compare(CommitteeScheduleMinute csm1, CommitteeScheduleMinute csm2) {
+            int retVal = csm1.getMinuteEntryType().compareTo(csm2.getMinuteEntryType());
+            if (retVal == 0) {
+                // same entry type, then sort by protocol number if possible
+                if ((csm1.getProtocolIdFk() != null) && (csm2.getProtocolIdFk() != null)) {
+                    retVal = csm1.getProtocol().getProtocolNumber().compareTo(csm2.getProtocol().getProtocolNumber());
+                }
+                // if not protocol then try 'other business' item type
+                else if ((csm1.getCommScheduleActItemsIdFk() != null) && (csm2.getCommScheduleActItemsIdFk() != null)) {
+                    retVal = csm1.getCommScheduleActItem().getScheduleActItemType().getScheduleActItemTypeCode()
+                            .compareTo(csm2.getCommScheduleActItem().getScheduleActItemType().getScheduleActItemTypeCode());
+                }
+            }
+            return retVal;
+        }
+
+    }; 
 
     /**
      * Constructs a CommitteeScheduleMinute.
@@ -538,24 +562,39 @@ public class CommitteeScheduleMinute extends KraPersistableBusinessObjectBase im
      * are returned true by default.
      * @return false if it is an online review comment and not accepted, true otherwise.
      */
-    public boolean isAccepted() {
-        boolean accepted = false;
-         
-        if (getProtocolOnlineReviewIdFk() != null) {
-            ProtocolOnlineReview protocolOnlineReview = getBusinessObjectService().findBySinglePrimaryKey(ProtocolOnlineReview.class, getProtocolOnlineReviewIdFk());
-            if (protocolOnlineReview.isAdminAccepted()) {
-                accepted = true;
-            }
-        } else {
-            accepted = true;
-        }
-        
-        return accepted;
-    }
+//    public boolean isAccepted() {
+//        boolean accepted = false;
+//         
+//        if (getProtocolOnlineReviewIdFk() != null) {
+//            ProtocolOnlineReview protocolOnlineReview = getBusinessObjectService().findBySinglePrimaryKey(ProtocolOnlineReview.class, getProtocolOnlineReviewIdFk());
+//            if (protocolOnlineReview.isAdminAccepted()) {
+//                accepted = true;
+//            }
+//        } else {
+//            accepted = true;
+//        }
+//        
+//        return accepted;
+//    }
 
     
-    private BusinessObjectService getBusinessObjectService() {
-        return KraServiceLocator.getService(BusinessObjectService.class);
+//    private BusinessObjectService getBusinessObjectService() {
+//        return KraServiceLocator.getService(BusinessObjectService.class);
+//    }
+
+    public boolean isReviewComment() {
+        // TODO Auto-generated method stub
+        return true;
+    }
+
+    @Override
+    public boolean isFinal() {
+        return isFinalFlag();
+    }
+
+    @Override
+    public boolean isPrivate() {
+        return getPrivateCommentFlag();
     }
 
 

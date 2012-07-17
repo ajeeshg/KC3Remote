@@ -824,6 +824,10 @@ public class TimeAndMoneyAction extends KraTransactionalDocumentActionBase {
     private void populateOtherPanels(AwardAmountTransaction newAwardAmountTransaction, TimeAndMoneyForm timeAndMoneyForm, String goToAwardNumber)
             throws LookupException, SQLException, WorkflowException {
         Award award = getWorkingAwardVersion(goToAwardNumber);
+        if (award == null) {
+            GlobalVariables.getMessageMap().putError("goToAwardNumber", "error.timeandmoney.invalidawardnumber", goToAwardNumber);
+            return;
+        }
         TimeAndMoneyDocument timeAndMoneyDocument = timeAndMoneyForm.getTimeAndMoneyDocument();
         timeAndMoneyDocument.setAwardNumber(award.getAwardNumber());
         timeAndMoneyDocument.setAward(award);
@@ -904,7 +908,10 @@ public class TimeAndMoneyAction extends KraTransactionalDocumentActionBase {
             award = (Award) vh.getSequenceOwner();
         }else{
             BusinessObjectService businessObjectService =  KraServiceLocator.getService(BusinessObjectService.class);
-            award = ((List<Award>)businessObjectService.findMatching(Award.class, getHashMapToFindActiveAward(goToAwardNumber))).get(0);              
+            List<Award> matchingAwards = (List<Award>)businessObjectService.findMatching(Award.class, getHashMapToFindActiveAward(goToAwardNumber));
+            if (matchingAwards != null && !matchingAwards.isEmpty()) {
+                award = matchingAwards.get(0);
+            }
         }
         return award;
     }
@@ -1056,7 +1063,8 @@ public class TimeAndMoneyAction extends KraTransactionalDocumentActionBase {
         }
         
         AwardDocument awardDocument = timeAndMoneyDocument.getAward().getAwardDocument();
-                
+        //reload document to make sure we have a valid workflow document
+        awardDocument = (AwardDocument) getDocumentService().getByDocumentHeaderId(awardDocument.getDocumentNumber());       
         Long routeHeaderId = awardDocument.getDocumentHeader().getWorkflowDocument().getRouteHeaderId();
 
         String forward = buildForwardUrl(routeHeaderId);

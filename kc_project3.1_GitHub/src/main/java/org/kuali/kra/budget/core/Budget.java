@@ -81,6 +81,7 @@ import org.kuali.rice.kns.util.ObjectUtils;
  */
 public class Budget extends BudgetVersionOverview {
 
+    private static final String PARAM_VALUE_ENABLED = "1";
     /**
      * Comment for <code>serialVersionUID</code>
      */
@@ -109,6 +110,8 @@ public class Budget extends BudgetVersionOverview {
     private String activityTypeCode="x";
     private boolean budgetLineItemDeleted;
     private boolean rateClassTypesReloaded = false ;
+    private String budgetAdjustmentDocumentNumber;
+   
 
     private List<BudgetPersonnelDetails> budgetPersonnelDetailsList;
     private List<BudgetPerson> budgetPersons;
@@ -214,6 +217,14 @@ public class Budget extends BudgetVersionOverview {
         }
         
         return false;
+    }
+    
+    public String getBudgetAdjustmentDocumentNumber() {
+        return budgetAdjustmentDocumentNumber;
+    }
+
+    public void setBudgetAdjustmentDocumentNumber(String budgetAdjustmentDocumentNumber) {
+        this.budgetAdjustmentDocumentNumber = budgetAdjustmentDocumentNumber;
     }
     
     /**
@@ -1786,6 +1797,9 @@ OUTER:  for(BudgetPeriod budgetPeriod: getBudgetPeriods()) {
         return new BudgetPersonnelDetails();
     }
     
+    public boolean isCostSharingSubmissionEnabled(){
+        return getParameterService().getParameterValue(BudgetDocument.class, Constants.ENABLE_COST_SHARE_SUBMIT).equals(PARAM_VALUE_ENABLED);
+    }
 }
 
 class RateClassTypeComparator implements Comparator<RateClassType>, Serializable {

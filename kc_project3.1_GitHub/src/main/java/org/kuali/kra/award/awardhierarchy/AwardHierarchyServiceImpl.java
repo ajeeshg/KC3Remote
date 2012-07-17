@@ -358,9 +358,14 @@ public class AwardHierarchyServiceImpl implements AwardHierarchyService {
         }
         return newAward;
     }
+   
     
     protected void clearFilteredAttributes(Award newAward) {
+        // setting all financial information to null so copied award can spawn its own
         newAward.setAccountNumber(null);
+        newAward.setFinancialAccountCreationDate(null);
+        newAward.setFinancialAccountDocumentNumber(null);
+        newAward.setFinancialChartOfAccountsCode(null);
         newAward.setNoticeDate(null);
         int sourceFundingProposalsCount = newAward.getFundingProposals().size();
         for(int i=0; i < sourceFundingProposalsCount; i++) {
@@ -621,63 +626,81 @@ public class AwardHierarchyServiceImpl implements AwardHierarchyService {
         
         for(Entry<String, AwardHierarchy> awardHierarchy:awardHierarchyItems.entrySet()){
             tmpAwardNumber = awardHierarchy.getValue().getAwardNumber();
-            awardHierarchyNode = new AwardHierarchyNode();
-            awardHierarchyNode.setAwardNumber(tmpAwardNumber);
-            awardHierarchyNode.setParentAwardNumber(awardHierarchy.getValue().getParentAwardNumber());
-            awardHierarchyNode.setRootAwardNumber(awardHierarchy.getValue().getRootAwardNumber());
-            
-            //Award award = null;
-            VersionHistory pendingVersionHistory = null;
-            //For the current award, we should always show only the pending version if it exists
-//            if(StringUtils.isNotEmpty(currentAwardNumber) && StringUtils.isNotEmpty(currentSequenceNumber) && StringUtils.equals(tmpAwardNumber, currentAwardNumber)) {
-                pendingVersionHistory = versionHistoryService.findPendingVersion(Award.class, currentAwardNumber, currentSequenceNumber);
-//                if(pendingVersionHistory != null) {
-//                    award = (Award) pendingVersionHistory.getSequenceOwner();
-//                }
-//            }
-            Award award = activePendingTransactionsService.getWorkingAwardVersion(tmpAwardNumber);
-//            if(award == null) {
-//                award = activeAward;  
-//            }  
-
-            AwardAmountInfo awardAmountInfo = awardAmountInfoService.fetchAwardAmountInfoWithHighestTransactionId(award.getAwardAmountInfos());            
-            
-            awardHierarchyNode.setFinalExpirationDate(awardAmountInfo.getFinalExpirationDate());
-            awardHierarchyNode.setLeadUnitName(award.getUnitName());
-            awardHierarchyNode.setPrincipalInvestigatorName(award.getPrincipalInvestigatorName());
-            awardHierarchyNode.setAccountNumber(award.getAccountNumber());
-            awardHierarchyNode.setAwardStatusCode(award.getStatusCode());
-            awardHierarchyNode.setObliDistributableAmount(awardAmountInfo.getObliDistributableAmount());
-            awardHierarchyNode.setAmountObligatedToDate(awardAmountInfo.getAmountObligatedToDate());
-            awardHierarchyNode.setObligatedTotalDirect(awardAmountInfo.getObligatedTotalDirect());
-            awardHierarchyNode.setObligatedTotalIndirect(awardAmountInfo.getObligatedTotalIndirect());
-            awardHierarchyNode.setAnticipatedTotalAmount(awardAmountInfo.getAnticipatedTotalAmount());
-            awardHierarchyNode.setAnticipatedTotalDirect(awardAmountInfo.getAnticipatedTotalDirect());
-            awardHierarchyNode.setAnticipatedTotalIndirect(awardAmountInfo.getAnticipatedTotalIndirect());
-            awardHierarchyNode.setAntDistributableAmount(awardAmountInfo.getAntDistributableAmount());
-            awardHierarchyNode.setCurrentFundEffectiveDate(awardAmountInfo.getCurrentFundEffectiveDate());
-            //awardHierarchyNode.setCurrentFundEffectiveDate(award.getAwardEffectiveDate());
-            awardHierarchyNode.setObligationExpirationDate(awardAmountInfo.getObligationExpirationDate());
-            awardHierarchyNode.setProjectStartDate(award.getAwardEffectiveDate());
-            awardHierarchyNode.setTitle(award.getTitle());
-            awardHierarchyNode.setAwardId(award.getAwardId());
-            
-            String documentNumber = award.getAwardDocument().getDocumentNumber();
-            boolean awardDocumentFinalStatus = false;
-            try {
-                Document awardDocument = documentService.getByDocumentHeaderId(documentNumber);
-                awardDocumentFinalStatus = (awardDocument != null) ? awardDocument.getDocumentHeader().getWorkflowDocument().stateIsFinal() : false;
-            } catch(WorkflowException e) {
-                throw uncheckedException(e);
+            if (awardHierarchyNodes.get(tmpAwardNumber) != null) {
+                continue;
             }
-            
-            awardHierarchyNode.setAwardDocumentNumber(documentNumber);
-            if(!awardDocumentFinalStatus && pendingVersionHistory != null && award != null && !pendingVersionHistory.getSequenceOwnerSequenceNumber().equals(award.getSequenceNumber())) {
-                awardDocumentFinalStatus = true;   
-            }
-            awardHierarchyNode.setAwardDocumentFinalStatus(new Boolean(awardDocumentFinalStatus));
+            awardHierarchyNode = createAwardHierarchyNode(awardHierarchy.getValue(), currentAwardNumber, currentSequenceNumber);
             awardHierarchyNodes.put(awardHierarchyNode.getAwardNumber(), awardHierarchyNode);
         }  
+    }
+    
+    public AwardHierarchyNode createAwardHierarchyNode(AwardHierarchy awardHierarchy, String currentAwardNumber, String currentSequenceNumber) {
+        String awardNumber = awardHierarchy.getAwardNumber();
+        AwardHierarchyNode awardHierarchyNode = new AwardHierarchyNode();
+        awardHierarchyNode.setAwardNumber(awardNumber);
+        awardHierarchyNode.setParentAwardNumber(awardHierarchy.getParentAwardNumber());
+        awardHierarchyNode.setRootAwardNumber(awardHierarchy.getRootAwardNumber());
+
+        VersionHistory pendingVersionHistory = versionHistoryService.findPendingVersion(Award.class, awardNumber);
+        VersionHistory activeVersionHistory = versionHistoryService.findActiveVersion(Award.class, awardNumber);
+        Award award = null;
+        if (pendingVersionHistory != null) {
+            award = (Award) pendingVersionHistory.getSequenceOwner();
+        } else if (activeVersionHistory != null) {
+            award = (Award) activeVersionHistory.getSequenceOwner();
+        }
+        //KRACOEUS-4879 - The above is the same as the commented out section below as long as we prefer the pending version in 
+        //the getWorkingAwardVersion call.
+        //Award award = activePendingTransactionsService.getWorkingAwardVersion(awardNumber); 
+        //if a current award was passed in, make sure to use the current pending version if it exists
+        //so any changes are reflected in the hierarchy.
+        /*if(StringUtils.isNotEmpty(currentAwardNumber) && StringUtils.isNotEmpty(currentSequenceNumber) && StringUtils.equals(awardNumber, currentAwardNumber)) {
+            pendingVersionHistory = versionHistoryService.findPendingVersion(Award.class, currentAwardNumber, currentSequenceNumber);
+            if (pendingVersionHistory != null) {
+                award = (Award) pendingVersionHistory.getSequenceOwner();
+            }
+        }*/
+
+        AwardAmountInfo awardAmountInfo = awardAmountInfoService.fetchAwardAmountInfoWithHighestTransactionId(award.getAwardAmountInfos());            
+        
+        awardHierarchyNode.setFinalExpirationDate(awardAmountInfo.getFinalExpirationDate());
+        awardHierarchyNode.setLeadUnitName(award.getUnitName());
+        awardHierarchyNode.setPrincipalInvestigatorName(award.getPrincipalInvestigatorName());
+        awardHierarchyNode.setAccountNumber(award.getAccountNumber());
+        awardHierarchyNode.setAwardStatusCode(award.getStatusCode());
+        awardHierarchyNode.setObliDistributableAmount(awardAmountInfo.getObliDistributableAmount());
+        awardHierarchyNode.setAmountObligatedToDate(awardAmountInfo.getAmountObligatedToDate());
+        awardHierarchyNode.setObligatedTotalDirect(awardAmountInfo.getObligatedTotalDirect());
+        awardHierarchyNode.setObligatedTotalIndirect(awardAmountInfo.getObligatedTotalIndirect());
+        awardHierarchyNode.setAnticipatedTotalAmount(awardAmountInfo.getAnticipatedTotalAmount());
+        awardHierarchyNode.setAnticipatedTotalDirect(awardAmountInfo.getAnticipatedTotalDirect());
+        awardHierarchyNode.setAnticipatedTotalIndirect(awardAmountInfo.getAnticipatedTotalIndirect());
+        awardHierarchyNode.setAntDistributableAmount(awardAmountInfo.getAntDistributableAmount());
+        awardHierarchyNode.setCurrentFundEffectiveDate(awardAmountInfo.getCurrentFundEffectiveDate());
+        awardHierarchyNode.setObligationExpirationDate(awardAmountInfo.getObligationExpirationDate());
+        awardHierarchyNode.setProjectStartDate(award.getAwardEffectiveDate());
+        awardHierarchyNode.setTitle(award.getTitle());
+        awardHierarchyNode.setAwardId(award.getAwardId());
+        
+        /*
+        String documentNumber = award.getAwardDocument().getDocumentNumber();
+        boolean awardDocumentFinalStatus = false;
+        try {
+            Document awardDocument = documentService.getByDocumentHeaderId(documentNumber);
+            awardDocumentFinalStatus = (awardDocument != null) ? awardDocument.getDocumentHeader().getWorkflowDocument().stateIsFinal() : false;
+        } catch (WorkflowException e) {
+            throw uncheckedException(e);
+        }
+        
+        awardHierarchyNode.setAwardDocumentNumber(documentNumber);
+        if (awardDocumentFinalStatus && pendingVersionHistory != null && award != null && !pendingVersionHistory.getSequenceOwnerSequenceNumber().equals(award.getSequenceNumber())) {
+            awardDocumentFinalStatus = false;
+        }
+        awardHierarchyNode.setAwardDocumentFinalStatus(awardDocumentFinalStatus);*/
+        //if there is not a pending version and there is an active version then the award document is final.
+        awardHierarchyNode.setAwardDocumentFinalStatus(pendingVersionHistory == null && activeVersionHistory != null);
+        return awardHierarchyNode;
+
     }
     
     /**
@@ -696,7 +719,17 @@ public class AwardHierarchyServiceImpl implements AwardHierarchyService {
             awardHierarchyNode.setParentAwardNumber(awardHierarchy.getValue().getParentAwardNumber());
             awardHierarchyNode.setRootAwardNumber(awardHierarchy.getValue().getRootAwardNumber());
             
-            //Award award = null;
+            VersionHistory pendingVersionHistory = versionHistoryService.findPendingVersion(Award.class, tmpAwardNumber);
+            VersionHistory activeVersionHistory = versionHistoryService.findActiveVersion(Award.class, tmpAwardNumber);
+            Award award = null;
+            if (pendingVersionHistory != null) {
+                award = (Award) pendingVersionHistory.getSequenceOwner();
+            } else if (activeVersionHistory != null) {
+                award = (Award) activeVersionHistory.getSequenceOwner();
+            }
+            //KRACOEUS-4879 - The above is the same as the commented out section below as long as we prefer the pending version in 
+            
+            /*//Award award = null;
             VersionHistory pendingVersionHistory = null;
             //For the current award, we should always show only the pending version if it exists
 //            if(StringUtils.isNotEmpty(currentAwardNumber) && StringUtils.isNotEmpty(currentSequenceNumber) && StringUtils.equals(tmpAwardNumber, currentAwardNumber)) {
@@ -708,7 +741,7 @@ public class AwardHierarchyServiceImpl implements AwardHierarchyService {
             Award award = activePendingTransactionsService.getWorkingAwardVersion(tmpAwardNumber);
 //            if(award == null) {
 //                award = activeAward;  
-//            }  
+//            }  */
 
             AwardAmountInfo awardAmountInfo = awardAmountInfoService.fetchLastAwardAmountInfoForDocNum(award, docNum);            
             
@@ -732,7 +765,7 @@ public class AwardHierarchyServiceImpl implements AwardHierarchyService {
             awardHierarchyNode.setTitle(award.getTitle());
             awardHierarchyNode.setAwardId(award.getAwardId());
             
-            String documentNumber = award.getAwardDocument().getDocumentNumber();
+            /*String documentNumber = award.getAwardDocument().getDocumentNumber();
             boolean awardDocumentFinalStatus = false;
             try {
                 Document awardDocument = documentService.getByDocumentHeaderId(documentNumber);
@@ -745,7 +778,9 @@ public class AwardHierarchyServiceImpl implements AwardHierarchyService {
             if(!awardDocumentFinalStatus && pendingVersionHistory != null && award != null && !pendingVersionHistory.getSequenceOwnerSequenceNumber().equals(award.getSequenceNumber())) {
                 awardDocumentFinalStatus = true;   
             }
-            awardHierarchyNode.setAwardDocumentFinalStatus(new Boolean(awardDocumentFinalStatus));
+            awardHierarchyNode.setAwardDocumentFinalStatus(new Boolean(awardDocumentFinalStatus));*/
+            //if there is not a pending version and there is an active version then the award document is final.
+            awardHierarchyNode.setAwardDocumentFinalStatus(pendingVersionHistory == null && activeVersionHistory != null);
             awardHierarchyNodes.put(awardHierarchyNode.getAwardNumber(), awardHierarchyNode);
         }  
     }

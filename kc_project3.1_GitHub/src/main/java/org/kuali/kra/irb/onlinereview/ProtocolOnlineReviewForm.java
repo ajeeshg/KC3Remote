@@ -181,9 +181,11 @@ public class ProtocolOnlineReviewForm extends KraTransactionalDocumentFormBase i
         
         TaskAuthorizationService tas = KraServiceLocator.getService(TaskAuthorizationService.class);
                
-        if( tas.isAuthorized(GlobalVariables.getUserSession().getPrincipalId(), new ProtocolOnlineReviewTask("rejectProtocolOnlineReview",doc))) {
-            String resubmissionImage = KraServiceLocator.getService(KualiConfigurationService.class).getPropertyString(externalImageURL) + "buttonsmall_reject_review.gif";
-            addExtraButton("methodToCall.rejectOnlineReview", resubmissionImage, "Reject");
+        if( tas.isAuthorized(GlobalVariables.getUserSession().getPrincipalId(), new ProtocolOnlineReviewTask("rejectProtocolOnlineReview",doc))
+                && doc.getDocumentHeader().getWorkflowDocument().stateIsEnroute()
+                && ProtocolOnlineReviewStatus.FINAL_STATUS_CD.equals(doc.getProtocolOnlineReview().getProtocolOnlineReviewStatusCode())) {
+            String resubmissionImage = KraServiceLocator.getService(KualiConfigurationService.class).getPropertyString(externalImageURL) + "buttonsmall_return_to_reviewer.gif";
+            addExtraButton("methodToCall.rejectOnlineReview", resubmissionImage, "Return to reviewer");
         }
         
         return extraButtons;

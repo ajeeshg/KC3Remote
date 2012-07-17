@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.mail.internet.HeaderTokenizer;
+import javax.mail.internet.MimeUtility;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -28,6 +30,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.struts.action.ActionForm;
 import org.apache.struts.action.ActionForward;
 import org.apache.struts.action.ActionMapping;
+import org.kuali.kra.bo.AttachmentFile;
 import org.kuali.kra.committee.bo.CommitteeMembership;
 import org.kuali.kra.infrastructure.Constants;
 import org.kuali.kra.infrastructure.KeyConstants;
@@ -38,15 +41,20 @@ import org.kuali.kra.irb.ProtocolAction;
 import org.kuali.kra.irb.ProtocolForm;
 import org.kuali.kra.irb.ProtocolOnlineReviewDocument;
 import org.kuali.kra.irb.actions.notification.ProtocolActionsNotificationService;
+import org.kuali.kra.irb.actions.notification.RejectReviewEvent;
 import org.kuali.kra.irb.actions.notification.ReviewCompleteEvent;
+import org.kuali.kra.irb.actions.reviewcomments.ProtocolAddReviewAttachmentEvent;
+import org.kuali.kra.irb.actions.reviewcomments.ReviewAttachmentsBean;
 import org.kuali.kra.irb.actions.reviewcomments.ReviewCommentsBean;
 import org.kuali.kra.irb.actions.reviewcomments.ReviewCommentsService;
 import org.kuali.kra.irb.actions.submit.ProtocolReviewer;
 import org.kuali.kra.irb.actions.submit.ProtocolReviewerBean;
-import org.kuali.kra.irb.actions.submit.ProtocolReviewerType;
 import org.kuali.kra.irb.actions.submit.ProtocolSubmission;
 import org.kuali.kra.irb.auth.ProtocolTask;
+import org.kuali.kra.irb.onlinereview.event.AddProtocolOnlineReviewAttachmentEvent;
 import org.kuali.kra.irb.onlinereview.event.AddProtocolOnlineReviewCommentEvent;
+import org.kuali.kra.irb.onlinereview.event.DisapproveProtocolOnlineReviewCommentEvent;
+import org.kuali.kra.irb.onlinereview.event.RejectProtocolOnlineReviewCommentEvent;
 import org.kuali.kra.irb.onlinereview.event.RouteProtocolOnlineReviewEvent;
 import org.kuali.kra.irb.onlinereview.event.SaveProtocolOnlineReviewEvent;
 import org.kuali.kra.meeting.CommitteeScheduleMinute;
@@ -55,9 +63,9 @@ import org.kuali.kra.service.KraAuthorizationService;
 import org.kuali.kra.service.KraWorkflowService;
 import org.kuali.kra.service.TaskAuthorizationService;
 import org.kuali.kra.web.struts.action.AuditActionHelper;
-import org.kuali.rice.kew.util.KEWConstants;
 import org.kuali.rice.kns.bo.Note;
 import org.kuali.rice.kns.question.ConfirmationQuestion;
+import org.kuali.rice.kns.service.DateTimeService;
 import org.kuali.rice.kns.service.DocumentService;
 import org.kuali.rice.kns.service.KualiRuleService;
 import org.kuali.rice.kns.util.GlobalVariables;
@@ -77,9 +85,15 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
     private static final String PROTOCOL_TAB = "protocol";
     private static final String DOCUMENT_REJECT_QUESTION="DocReject";
     private static final String UPDATE_REVIEW_STATUS_TO_FINAL="statusToFinal";
+    private static final String DOCUMENT_REJECT_REASON_MAXLENGTH = "2000";
     //Protocol Online Review Action Forwards
   
+    private static final String NOT_FOUND_SELECTION = "the attachment was not found for selection ";
     
+    
+    /** signifies that a response has already be handled therefore forwarding to obtain a response is not needed. */
+    private static final ActionForward RESPONSE_ALREADY_HANDLED = null;
+
     //Used for redirecting to/from the ProtocolOnlineReviewRedirect action.
     private static final String PROTOCOL_DOCUMENT_NUMBER="protocolDocumentNumber";
     private static final String PROTOCOL_ONLINE_REVIEW_DOCUMENT_NUMBER="protocolOnlineReviewDocumentNumber";
@@ -377,12 +391,14 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
         ProtocolForm protocolForm = (ProtocolForm) form;
         ProtocolOnlineReviewDocument prDoc = protocolForm.getOnlineReviewsActionHelper().getDocumentFromHelperMap(onlineReviewDocumentNumber);
         ReviewCommentsBean reviewCommentsBean = protocolForm.getOnlineReviewsActionHelper().getReviewCommentsBeanFromHelperMap(onlineReviewDocumentNumber);
+        ReviewAttachmentsBean reviewAttachmentsBean = protocolForm.getOnlineReviewsActionHelper().getReviewAttachmentsBeanFromHelperMap(onlineReviewDocumentNumber);
         if ( !this.applyRules(new SaveProtocolOnlineReviewEvent(prDoc, reviewCommentsBean.getReviewComments(), protocolForm.getOnlineReviewsActionHelper().getIndexByDocumentNumber(onlineReviewDocumentNumber)))) {
             //nothing to do, we failed validation return them to the screen.
         } else {
             ProtocolReviewer reviewer = prDoc.getProtocolOnlineReview().getProtocolReviewer();
             getBusinessObjectService().save(reviewer);
             getReviewCommentsService().saveReviewComments(reviewCommentsBean.getReviewComments(), reviewCommentsBean.getDeletedReviewComments());
+            getReviewCommentsService().saveReviewAttachments(reviewAttachmentsBean.getReviewAttachments(), reviewAttachmentsBean.getDeletedReviewAttachments());           
             documentService.saveDocument(prDoc);
             recordOnlineReviewActionSuccess("saved", prDoc);
             protocolForm.getOnlineReviewsActionHelper().init(true);
@@ -414,22 +430,38 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
         String reason = request.getParameter(KNSConstants.QUESTION_REASON_ATTRIBUTE_NAME);
         String callerString = String.format("rejectOnlineReview.%s.anchor%s",prDoc.getDocumentNumber(),0);
         if(question == null){
-            return this.performQuestionWithInput(mapping, form, request, response, DOCUMENT_REJECT_QUESTION,"Are you sure you want to reject this document?" , KNSConstants.CONFIRMATION_QUESTION, callerString, "");
+            return this.performQuestionWithInput(mapping, form, request, response, DOCUMENT_REJECT_QUESTION,"Are you sure you want to return this document to reviewer ?" , KNSConstants.CONFIRMATION_QUESTION, callerString, "");
          } 
         else if((DOCUMENT_REJECT_QUESTION.equals(question)) && ConfirmationQuestion.NO.equals(buttonClicked))  {
             //nothing to do.
         }
         else
         {
-            prDoc.getProtocolOnlineReview().setProtocolOnlineReviewStatusCode(ProtocolOnlineReviewStatus.SAVED_STATUS_CD);
-            prDoc.getProtocolOnlineReview().addActionPerformed("Reject");
-            prDoc.getProtocolOnlineReview().setReviewerApproved(false);
-            prDoc.getProtocolOnlineReview().setAdminAccepted(false);
-            setOnlineReviewCommentFinalFlags(prDoc.getProtocolOnlineReview(), false);
-            getDocumentService().saveDocument(prDoc);
-            getProtocolOnlineReviewService().returnProtocolOnlineReviewDocumentToReviewer(prDoc,reason,GlobalVariables.getUserSession().getPrincipalId());
-            protocolForm.getOnlineReviewsActionHelper().init(true);
-            recordOnlineReviewActionSuccess("returned to reviewer", prDoc);
+            if (!this.applyRules(new RejectProtocolOnlineReviewCommentEvent(prDoc, reason, new Integer(DOCUMENT_REJECT_REASON_MAXLENGTH).intValue()))) {
+                if (reason == null) {
+                    reason = ""; //Prevents null pointer exception in performQuestion
+                }
+                return this.performQuestionWithInputAgainBecauseOfErrors(mapping, form, request, response, DOCUMENT_REJECT_QUESTION, "Are you sure you want to return this document to reviewer ?", KNSConstants.CONFIRMATION_QUESTION, callerString, "", reason, KeyConstants.ERROR_ONLINE_REVIEW_REJECTED_REASON_REQUIRED, KNSConstants.QUESTION_REASON_ATTRIBUTE_NAME, DOCUMENT_REJECT_REASON_MAXLENGTH);              
+            } else if (WebUtils.containsSensitiveDataPatternMatch(reason)) {
+                return this.performQuestionWithInputAgainBecauseOfErrors(mapping, form, request, response, 
+                        DOCUMENT_REJECT_QUESTION, "Are you sure you want to return this document to reviewer ?", 
+                        KNSConstants.CONFIRMATION_QUESTION, callerString, "", reason, RiceKeyConstants.ERROR_DOCUMENT_FIELD_CONTAINS_POSSIBLE_SENSITIVE_DATA,
+                        KNSConstants.QUESTION_REASON_ATTRIBUTE_NAME, "reason");
+            } else {
+                prDoc.getProtocolOnlineReview().setProtocolOnlineReviewStatusCode(ProtocolOnlineReviewStatus.SAVED_STATUS_CD);
+                prDoc.getProtocolOnlineReview().addActionPerformed("Reject");
+                prDoc.getProtocolOnlineReview().setReviewerApproved(false);
+                prDoc.getProtocolOnlineReview().setAdminAccepted(false);
+                setOnlineReviewCommentFinalFlags(prDoc.getProtocolOnlineReview(), false);
+                getDocumentService().saveDocument(prDoc);
+                getProtocolOnlineReviewService().returnProtocolOnlineReviewDocumentToReviewer(prDoc,reason,GlobalVariables.getUserSession().getPrincipalId());
+                RejectReviewEvent rejectReview = new RejectReviewEvent(protocolForm.getProtocolDocument().getProtocol());
+                rejectReview.setOnlineReview(prDoc.getProtocolOnlineReview());
+                rejectReview.setReason(reason);
+                rejectReview.sendNotification();
+                protocolForm.getOnlineReviewsActionHelper().init(true);
+                recordOnlineReviewActionSuccess("returned to reviewer", prDoc);                
+            }
         }
         return mapping.findForward(Constants.MAPPING_BASIC);
     }  
@@ -483,14 +515,13 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
 
                 // build out full message
                 disapprovalNoteText = introNoteMessage + reason;
-                int disapprovalNoteTextLength = disapprovalNoteText.length();
 
                 // get note text max length from DD
                 int noteTextMaxLength = getDataDictionaryService().getAttributeMaxLength(Note.class, KNSConstants.NOTE_TEXT_PROPERTY_NAME).intValue();
 
-                if (StringUtils.isBlank(reason) || (disapprovalNoteTextLength > noteTextMaxLength)) {
+                if (!this.applyRules(new DisapproveProtocolOnlineReviewCommentEvent(prDoc, reason, disapprovalNoteText, noteTextMaxLength))) {
                     // figure out exact number of characters that the user can enter
-                    int reasonLimit = noteTextMaxLength - disapprovalNoteTextLength;
+                    int reasonLimit = noteTextMaxLength - introNoteMessage.length();
 
                     if (reason == null) {
                         // prevent a NPE by setting the reason to a blank string
@@ -629,6 +660,50 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
 
     /**
      * 
+     * This method is for action to add OLR review attachment
+     * @param mapping
+     * @param form
+     * @param request
+     * @param response
+     * @return
+     * @throws Exception
+     */
+    public ActionForward addOnlineReviewAttachment(ActionMapping mapping, ActionForm form, HttpServletRequest request,
+            HttpServletResponse response) throws Exception {
+
+        ProtocolForm protocolForm = (ProtocolForm) form;
+        OnlineReviewsActionHelper actionHelper = protocolForm.getOnlineReviewsActionHelper();
+        String parameterName = (String) request.getAttribute(KNSConstants.METHOD_TO_CALL_ATTRIBUTE);
+        String documentNumber = getOnlineReviewActionDocumentNumber(parameterName, "addOnlineReviewAttachment");
+        
+        ProtocolOnlineReviewDocument document = actionHelper.getDocumentFromHelperMap(documentNumber);
+        ReviewAttachmentsBean reviewAttachmentsBean = actionHelper.getReviewAttachmentsBeanFromHelperMap(documentNumber);
+        long documentIndex = actionHelper.getIndexByDocumentNumber(documentNumber);
+        
+        if (applyRules(new AddProtocolOnlineReviewAttachmentEvent(document, reviewAttachmentsBean.getErrorPropertyName()+"s["+documentIndex+"].", reviewAttachmentsBean.getNewReviewAttachment()))) {
+//                && applyRules(new SaveProtocolOnlineReviewEvent(document, reviewAttachmentsBean.getReviewAttachments(), documentIndex))) {
+//                if (applyRules(new ProtocolAddReviewAttachmentEvent(document, errorPropertyName, newReviewAttachment))) {
+            ProtocolReviewAttachment newReviewAttachment = reviewAttachmentsBean.getNewReviewAttachment();
+            List<ProtocolReviewAttachment> reviewAttachments = reviewAttachmentsBean.getReviewAttachments();
+            List<ProtocolReviewAttachment> deletedReviewAttachments = reviewAttachmentsBean.getDeletedReviewAttachments();
+            if (protocolForm.getEditingMode().get(TaskName.MAINTAIN_PROTOCOL_ONLINEREVIEWS) == null) {
+               // newReviewAttachment.setPrivateFlag(true);
+                newReviewAttachment.setProtocolPersonCanView(false);
+            }
+            getReviewCommentsService().addReviewAttachment(newReviewAttachment, reviewAttachments, document.getProtocolOnlineReview().getProtocol());
+ //           addReviewAttachment(newReviewAttachment, reviewAttachments, document.getProtocolOnlineReview());
+            getReviewCommentsService().saveReviewAttachments(reviewAttachments, deletedReviewAttachments);
+            getDocumentService().saveDocument(document);
+            
+            reviewAttachmentsBean.setNewReviewAttachment(new ProtocolReviewAttachment());
+        }
+        
+        //protocolForm.getOnlineReviewsActionHelper().init(true);
+        return mapping.findForward(Constants.MAPPING_AWARD_BASIC);
+    }    
+
+    /**
+     * 
      * @param mapping the mapping associated with this action.
      * @param form the Protocol form.
      * @param request the HTTP request
@@ -734,17 +809,46 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
         return mapping.findForward(Constants.MAPPING_BASIC);
     }    
     
+    /**
+     * 
+     * This method is to delete the OLR review attachment and persist it
+     * @param mapping
+     * @param form
+     * @param request
+     * @param response
+     * @return
+     * @throws Exception
+     */
+    public ActionForward deleteOnlineReviewAttachment(ActionMapping mapping, ActionForm form, HttpServletRequest request,
+            HttpServletResponse response) throws Exception {
 
-    private boolean hasPermission(String taskName, Protocol protocol) {
-        ProtocolTask task = new ProtocolTask(taskName, protocol);
-        return getTaskAuthorizationService().isAuthorized(GlobalVariables.getUserSession().getPrincipalId(), task);
+        ProtocolForm protocolForm = (ProtocolForm) form;
+        OnlineReviewsActionHelper actionHelper = protocolForm.getOnlineReviewsActionHelper();
+        String parameterName = (String) request.getAttribute(KNSConstants.METHOD_TO_CALL_ATTRIBUTE);
+        String documentNumber = getOnlineReviewActionDocumentNumber(parameterName, "deleteOnlineReviewAttachment");
+
+        ProtocolOnlineReviewDocument document = actionHelper.getDocumentFromHelperMap(documentNumber);
+        ReviewAttachmentsBean reviewCommentsBean = actionHelper.getReviewAttachmentsBeanFromHelperMap(documentNumber);
+        long documentIndex = actionHelper.getIndexByDocumentNumber(documentNumber);
+        int attachmentIndex = getOnlineReviewActionIndexNumber(parameterName, "deleteOnlineReviewAttachment");
+
+        if (applyRules(new SaveProtocolOnlineReviewEvent(document, actionHelper.getReviewCommentsBeanFromHelperMap(documentNumber)
+                .getReviewComments(), documentIndex))) {
+            List<ProtocolReviewAttachment> reviewAttachments = document.getProtocolOnlineReview().getReviewAttachments();
+            List<ProtocolReviewAttachment> deletedReviewAttachments = reviewCommentsBean.getDeletedReviewAttachments();
+
+            // deleteReviewAttachment(reviewAttachments, attachmentIndex, deletedReviewAttachments);
+            getReviewCommentsService().deleteReviewAttachment(reviewAttachments, attachmentIndex, deletedReviewAttachments);
+            getReviewCommentsService().saveReviewAttachments(reviewAttachments, deletedReviewAttachments);
+            actionHelper.getReviewAttachmentsBeanFromHelperMap(documentNumber).setReviewAttachments(reviewAttachments);
+            getDocumentService().saveDocument(document);
+        }
+
+        protocolForm.getOnlineReviewsActionHelper().init(true);
+        return mapping.findForward(Constants.MAPPING_BASIC);
     }
     
-    private boolean hasGenericPermission(String genericActionName, Protocol protocol) {
-        ProtocolTask task = new ProtocolTask(TaskName.GENERIC_PROTOCOL_ACTION, protocol, genericActionName);
-        return getTaskAuthorizationService().isAuthorized(GlobalVariables.getUserSession().getPrincipalId(), task);
-    }
-    
+        
     private TaskAuthorizationService getTaskAuthorizationService() {
         return KraServiceLocator.getService(TaskAuthorizationService.class);
     }
@@ -752,11 +856,7 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
     private ReviewCommentsService getReviewCommentsService() {
         return KraServiceLocator.getService(ReviewCommentsService.class);
     }
-    
-    private KraAuthorizationService getKraAuthorizationService() {
-        return KraServiceLocator.getService(KraAuthorizationService.class);
-    }
-    
+        
     private KraWorkflowService getKraWorkflowService() {
         return KraServiceLocator.getService(KraWorkflowService.class);
     }
@@ -772,4 +872,42 @@ public class ProtocolOnlineReviewAction extends ProtocolAction implements AuditM
             minute.setFinalFlag(flagValue);
         }
     }
+    
+    /**
+     * 
+     * This method is for 'view' OLR review attachment
+     * @param mapping
+     * @param form
+     * @param request
+     * @param response
+     * @return
+     * @throws Exception
+     */
+    public ActionForward viewOnlineReviewAttachment(ActionMapping mapping, ActionForm form, HttpServletRequest request,
+            HttpServletResponse response) throws Exception {
+        ProtocolForm protocolForm = (ProtocolForm) form;
+        OnlineReviewsActionHelper actionHelper = protocolForm.getOnlineReviewsActionHelper();
+        String parameterName = (String) request.getAttribute(KNSConstants.METHOD_TO_CALL_ATTRIBUTE);
+        String documentNumber = getOnlineReviewActionDocumentNumber(parameterName, "viewOnlineReviewAttachment");
+        
+        ReviewAttachmentsBean reviewCommentsBean = actionHelper.getReviewAttachmentsBeanFromHelperMap(documentNumber);
+        int attachmentIndex = getOnlineReviewActionIndexNumber(parameterName, "viewOnlineReviewAttachment");
+       final ProtocolReviewAttachment attachment = reviewCommentsBean.getReviewAttachments().get(attachmentIndex);
+        
+        if (attachment == null) {
+            LOG.info(NOT_FOUND_SELECTION + attachmentIndex);
+            //may want to tell the user the selection was invalid.
+            return mapping.findForward(Constants.MAPPING_BASIC);
+        }
+        
+        final AttachmentFile file = attachment.getFile();
+        this.streamToResponse(file.getData(), getValidHeaderString(file.getName()),  getValidHeaderString(file.getType()), response);
+        
+        return RESPONSE_ALREADY_HANDLED;
+    }
+
+    private static String getValidHeaderString(String s) {
+        return MimeUtility.quote(s, HeaderTokenizer.MIME);
+    }
+
 }
